@@ -1,5 +1,0 @@
-opencv-python
-simpleaudio
-pyyaml
-ultralytics
-numpy
