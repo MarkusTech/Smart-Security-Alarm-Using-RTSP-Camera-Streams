@@ -1,6 +1,7 @@
 import cv2
 import simpleaudio as sa
 import time
+import os
 
 # CONFIGURATION
 ALARM_SOUND_FILE = "alarm.wav"
@@ -10,6 +11,10 @@ MIN_BOX_HEIGHT = 50
 FRAME_DOWNSCALE = 0.6       
 DETECTION_FRAMES_REQUIRED = 2 
 SKIP_FRAMES = 1             
+
+# Folder to save captured images
+CAPTURE_FOLDER = "captures"
+os.makedirs(CAPTURE_FOLDER, exist_ok=True)
 
 # LOAD ALARM SOUND
 alarm_sound = sa.WaveObject.from_wave_file(ALARM_SOUND_FILE)
@@ -76,6 +81,13 @@ while True:
                 print("HUMAN DETECTED!")
                 alarm_sound.play()
                 last_alarm_time = current_time
+
+                # AUTO CAPTURE IMAGE
+                timestamp = time.strftime("%Y%m%d_%H%M%S")
+                filename = os.path.join(CAPTURE_FOLDER, f"human_{timestamp}.jpg")
+                cv2.imwrite(filename, frame)
+                print(f"Captured image: {filename}")
+
             human_present = True
         elif detection_counter == 0:
             human_present = False
@@ -86,7 +98,6 @@ while True:
     # Quit
     if cv2.waitKey(1) & 0xFF == ord('q'):
         break
-
 cap.release()
 cv2.destroyAllWindows()
 print("Program terminated.")
