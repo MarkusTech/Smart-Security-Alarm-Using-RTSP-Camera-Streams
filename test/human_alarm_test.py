@@ -1,5 +1,4 @@
 import cv2
-from ultralytics import YOLO
 import simpleaudio as sa
 import time
 
@@ -8,14 +7,11 @@ import time
 # -------------------------------
 ALARM_SOUND_FILE = "alarm.wav"
 CAMERA_INDEX = 0
-ALARM_COOLDOWN = 5      # seconds
-MIN_BOX_AREA = 5000
-FRAME_SKIP = 2          # process every 2nd frame for efficiency
-
-# -------------------------------
-# LOAD YOLO MODEL
-# -------------------------------
-model = YOLO("yolov8n.pt")  # small model for speed
+ALARM_COOLDOWN = 5          # seconds between alarms
+MIN_BOX_HEIGHT = 50
+FRAME_DOWNSCALE = 0.6       # slightly larger frame for better detection
+DETECTION_FRAMES_REQUIRED = 2  # require consecutive detections
+SKIP_FRAMES = 1             # run detection every N frames
 
 # -------------------------------
 # LOAD ALARM SOUND
@@ -32,8 +28,15 @@ if not cap.isOpened():
 
 print("Starting human detection. Press 'q' to quit.")
 
+# -------------------------------
+# SETUP HOG HUMAN DETECTOR
+# -------------------------------
+hog = cv2.HOGDescriptor()
+hog.setSVMDetector(cv2.HOGDescriptor_getDefaultPeopleDetector())
+
 last_alarm_time = 0
 human_present = False
+detection_counter = 0
 frame_count = 0
 
 # -------------------------------
@@ -45,62 +48,55 @@ while True:
         continue
 
     frame_count += 1
-    # Skip frames to save CPU
-    if frame_count % FRAME_SKIP != 0:
-        cv2.imshow("Human Detection", frame)
-        if cv2.waitKey(1) & 0xFF == ord('q'):
-            break
-        continue
 
-    # Resize frame smaller for detection (faster & less memory)
-    small_frame = cv2.resize(frame, (320, 180))
+    # Only run detection on every SKIP_FRAMES-th frame
+    if frame_count % SKIP_FRAMES == 0:
+        # Resize frame for detection
+        small_frame = cv2.resize(frame, (0, 0), fx=FRAME_DOWNSCALE, fy=FRAME_DOWNSCALE)
 
-    results = model(small_frame, verbose=False)
+        boxes, weights = hog.detectMultiScale(
+            small_frame,
+            winStride=(4, 4),  # smaller stride = more accurate
+            padding=(8, 8),
+            scale=1.1          # larger scale = catch humans of different sizes
+        )
 
-    human_detected = False
+        human_detected = False
 
-    # Draw bounding boxes
-    for r in results:
-        for obj in r.boxes:
-            cls = int(obj.cls[0])
-            label = model.names[cls]
-            if label != "person":
-                continue
-
-            x1, y1, x2, y2 = map(int, obj.xyxy[0])
-            box_area = (x2 - x1) * (y2 - y1)
-            if box_area < MIN_BOX_AREA / 4:  # scale for smaller frame
+        for (x, y, w, h) in boxes:
+            if h < MIN_BOX_HEIGHT:
                 continue
 
             human_detected = True
-
-            # Scale box to original frame
-            x_scale = frame.shape[1] / small_frame.shape[1]
-            y_scale = frame.shape[0] / small_frame.shape[0]
-            x1 = int(x1 * x_scale)
-            x2 = int(x2 * x_scale)
-            y1 = int(y1 * y_scale)
-            y2 = int(y2 * y_scale)
+            x1 = int(x / FRAME_DOWNSCALE)
+            y1 = int(y / FRAME_DOWNSCALE)
+            x2 = int((x + w) / FRAME_DOWNSCALE)
+            y2 = int((y + h) / FRAME_DOWNSCALE)
 
             cv2.rectangle(frame, (x1, y1), (x2, y2), (0, 0, 255), 2)
             cv2.putText(frame, "Person", (x1, y1 - 10),
                         cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 0, 255), 2)
 
-    # Trigger alarm once per new human detection
-    current_time = time.time()
-    if human_detected and not human_present:
-        if (current_time - last_alarm_time) > ALARM_COOLDOWN:
-            print("🚨 HUMAN DETECTED!")
-            # Play alarm asynchronously
-            alarm_sound.play()
-            last_alarm_time = current_time
-        human_present = True
-    elif not human_detected:
-        human_present = False
+        # Require consecutive detections to avoid misses
+        if human_detected:
+            detection_counter += 1
+        else:
+            detection_counter = 0
+
+        if detection_counter >= DETECTION_FRAMES_REQUIRED and not human_present:
+            current_time = time.time()
+            if (current_time - last_alarm_time) > ALARM_COOLDOWN:
+                print("🚨 HUMAN DETECTED!")
+                alarm_sound.play()
+                last_alarm_time = current_time
+            human_present = True
+        elif detection_counter == 0:
+            human_present = False
 
     # Show frame
     cv2.imshow("Human Detection", frame)
 
+    # Quit
     if cv2.waitKey(1) & 0xFF == ord('q'):
         break
 

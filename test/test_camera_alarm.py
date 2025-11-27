@@ -1,5 +1,4 @@
 import cv2
-from ultralytics import YOLO
 import simpleaudio as sa
 import time
 
@@ -7,13 +6,10 @@ import time
 # CONFIGURATION
 # -------------------------------
 ALARM_SOUND_FILE = "alarm.wav"
-CAMERA_INDEX = 0        # 0 = default laptop camera
-ALARM_COOLDOWN = 5      # seconds between alarms
-
-# -------------------------------
-# LOAD YOLOv8 MODEL
-# -------------------------------
-model = YOLO("yolov8n.pt")  # small and fast
+CAMERA_INDEX = 0         # 0 = default laptop camera
+ALARM_COOLDOWN = 5       # seconds between alarms
+MIN_BOX_HEIGHT = 50      # filter very small detections
+FRAME_DOWNSCALE = 0.5    # resize factor for faster detection
 
 # -------------------------------
 # LOAD ALARM SOUND
@@ -31,44 +27,53 @@ if not cap.isOpened():
 print("Starting human detection. Press 'q' to quit.")
 
 # -------------------------------
-# DETECTION LOOP
+# SETUP HOG HUMAN DETECTOR
 # -------------------------------
+hog = cv2.HOGDescriptor()
+hog.setSVMDetector(cv2.HOGDescriptor_getDefaultPeopleDetector())
+
 last_alarm_time = 0
 human_present = False
 
+# -------------------------------
+# MAIN LOOP
+# -------------------------------
 while True:
     ret, frame = cap.read()
     if not ret:
         continue
 
     # Resize frame for faster detection
-    small_frame = cv2.resize(frame, (640, 360))
-    results = model(small_frame)
+    small_frame = cv2.resize(frame, (0, 0), fx=FRAME_DOWNSCALE, fy=FRAME_DOWNSCALE)
+
+    # Detect humans (returns list of rectangles)
+    boxes, weights = hog.detectMultiScale(
+        small_frame,
+        winStride=(8, 8),
+        padding=(8, 8),
+        scale=1.05
+    )
 
     human_detected = False
 
-    # Draw boxes around humans
-    for r in results:
-        for obj in r.boxes:
-            cls = int(obj.cls[0])
-            label = model.names[cls]
-            if label == "person":
-                human_detected = True
-                # Get bounding box coordinates
-                x1, y1, x2, y2 = map(int, obj.xyxy[0])
-                # Scale back to original frame size
-                x_scale = frame.shape[1] / small_frame.shape[1]
-                y_scale = frame.shape[0] / small_frame.shape[0]
-                x1 = int(x1 * x_scale)
-                x2 = int(x2 * x_scale)
-                y1 = int(y1 * y_scale)
-                y2 = int(y2 * y_scale)
-                # Draw rectangle and label
-                cv2.rectangle(frame, (x1, y1), (x2, y2), (0, 0, 255), 2)
-                cv2.putText(frame, "Person", (x1, y1 - 10),
-                            cv2.FONT_HERSHEY_SIMPLEX, 0.8, (0, 0, 255), 2)
+    # Draw bounding boxes
+    for (x, y, w, h) in boxes:
+        if h < MIN_BOX_HEIGHT:
+            continue  # skip tiny false positives
 
-    # Trigger alarm if human appears and cooldown passed
+        human_detected = True
+
+        # Scale box to original frame size
+        x1 = int(x / FRAME_DOWNSCALE)
+        y1 = int(y / FRAME_DOWNSCALE)
+        x2 = int((x + w) / FRAME_DOWNSCALE)
+        y2 = int((y + h) / FRAME_DOWNSCALE)
+
+        cv2.rectangle(frame, (x1, y1), (x2, y2), (0, 0, 255), 2)
+        cv2.putText(frame, "Person", (x1, y1 - 10),
+                    cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 0, 255), 2)
+
+    # Trigger alarm only when a new human appears
     current_time = time.time()
     if human_detected and not human_present:
         if (current_time - last_alarm_time) > ALARM_COOLDOWN:
@@ -77,11 +82,12 @@ while True:
             last_alarm_time = current_time
         human_present = True
     elif not human_detected:
-        human_present = False  # reset if no humans
+        human_present = False
 
-    # Show camera feed
+    # Show frame
     cv2.imshow("Human Detection", frame)
 
+    # Press 'q' to quit
     if cv2.waitKey(1) & 0xFF == ord('q'):
         break
 
