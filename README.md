@@ -36,3 +36,9 @@ cd Smart-Security-Alarm-Using-RTSP-Camera-Streams
 ```bash
 pip install -r requirements.txt
 ```
+
+# Run Test
+
+```bash
+python human_alarm_test.py
+```
