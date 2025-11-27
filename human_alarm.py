@@ -72,7 +72,7 @@ while True:
     current_time = time.time()
     if human_detected and not human_present:
         if (current_time - last_alarm_time) > ALARM_COOLDOWN:
-            print("🚨 HUMAN DETECTED!")
+            print("HUMAN DETECTED!")
             alarm_sound.play()
             last_alarm_time = current_time
         human_present = True

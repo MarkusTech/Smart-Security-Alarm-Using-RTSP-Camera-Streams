@@ -2,23 +2,17 @@ import cv2
 import simpleaudio as sa
 import time
 
-# -------------------------------
 # CONFIGURATION
-# -------------------------------
 ALARM_SOUND_FILE = "alarm.wav"
-CAMERA_INDEX = 0         # 0 = default laptop camera
-ALARM_COOLDOWN = 5       # seconds between alarms
-MIN_BOX_HEIGHT = 50      # filter very small detections
-FRAME_DOWNSCALE = 0.5    # resize factor for faster detection
+CAMERA_INDEX = 0        
+ALARM_COOLDOWN = 5       
+MIN_BOX_HEIGHT = 50     
+FRAME_DOWNSCALE = 0.5 
 
-# -------------------------------
 # LOAD ALARM SOUND
-# -------------------------------
 alarm_sound = sa.WaveObject.from_wave_file(ALARM_SOUND_FILE)
 
-# -------------------------------
 # OPEN CAMERA
-# -------------------------------
 cap = cv2.VideoCapture(CAMERA_INDEX)
 if not cap.isOpened():
     print("ERROR: Camera not detected")
@@ -26,18 +20,14 @@ if not cap.isOpened():
 
 print("Starting human detection. Press 'q' to quit.")
 
-# -------------------------------
 # SETUP HOG HUMAN DETECTOR
-# -------------------------------
 hog = cv2.HOGDescriptor()
 hog.setSVMDetector(cv2.HOGDescriptor_getDefaultPeopleDetector())
 
 last_alarm_time = 0
 human_present = False
 
-# -------------------------------
 # MAIN LOOP
-# -------------------------------
 while True:
     ret, frame = cap.read()
     if not ret:
@@ -59,11 +49,9 @@ while True:
     # Draw bounding boxes
     for (x, y, w, h) in boxes:
         if h < MIN_BOX_HEIGHT:
-            continue  # skip tiny false positives
+            continue
 
         human_detected = True
-
-        # Scale box to original frame size
         x1 = int(x / FRAME_DOWNSCALE)
         y1 = int(y / FRAME_DOWNSCALE)
         x2 = int((x + w) / FRAME_DOWNSCALE)
@@ -77,7 +65,7 @@ while True:
     current_time = time.time()
     if human_detected and not human_present:
         if (current_time - last_alarm_time) > ALARM_COOLDOWN:
-            print("🚨 HUMAN DETECTED!")
+            print("HUMAN DETECTED!")
             alarm_sound.play()
             last_alarm_time = current_time
         human_present = True
@@ -91,9 +79,6 @@ while True:
     if cv2.waitKey(1) & 0xFF == ord('q'):
         break
 
-# -------------------------------
-# CLEANUP
-# -------------------------------
 cap.release()
 cv2.destroyAllWindows()
 print("Program terminated.")

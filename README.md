@@ -27,13 +27,12 @@ This project detects humans in real-time from an RTSP camera stream and triggers
 1. Clone the repository:
 
 ```bash
-git clone https://github.com/your-username/smart-security-alarm.git
-cd smart-security-alarm
+git clone https://github.com/MarkusTech/Smart-Security-Alarm-Using-RTSP-Camera-Streams.git
+cd Smart-Security-Alarm-Using-RTSP-Camera-Streams
 ```
 
 2. Install Python dependencies:
 
 ```bash
 pip install -r requirements.txt
-
 ```
