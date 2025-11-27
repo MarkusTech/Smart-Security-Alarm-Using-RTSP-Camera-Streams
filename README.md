@@ -40,5 +40,6 @@ pip install -r requirements.txt
 # Run Test
 
 ```bash
-python human_alarm_test.py
+cd test
+python main.py
 ```
