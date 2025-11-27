@@ -36,8 +36,11 @@ cd Smart-Security-Alarm-Using-RTSP-Camera-Streams
 ```bash
 pip install -r requirements.txt
 ```
-
-# Run Test
+3. Rup App
+ ``` bash
+python main.py
+ ```
+4. Run Test
 
 ```bash
 cd test
