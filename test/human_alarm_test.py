@@ -2,25 +2,19 @@ import cv2
 import simpleaudio as sa
 import time
 
-# -------------------------------
 # CONFIGURATION
-# -------------------------------
 ALARM_SOUND_FILE = "alarm.wav"
 CAMERA_INDEX = 0
-ALARM_COOLDOWN = 5          # seconds between alarms
+ALARM_COOLDOWN = 5          
 MIN_BOX_HEIGHT = 50
-FRAME_DOWNSCALE = 0.6       # slightly larger frame for better detection
-DETECTION_FRAMES_REQUIRED = 2  # require consecutive detections
-SKIP_FRAMES = 1             # run detection every N frames
+FRAME_DOWNSCALE = 0.6       
+DETECTION_FRAMES_REQUIRED = 2 
+SKIP_FRAMES = 1             
 
-# -------------------------------
 # LOAD ALARM SOUND
-# -------------------------------
 alarm_sound = sa.WaveObject.from_wave_file(ALARM_SOUND_FILE)
 
-# -------------------------------
 # OPEN CAMERA
-# -------------------------------
 cap = cv2.VideoCapture(CAMERA_INDEX)
 if not cap.isOpened():
     print("ERROR: Camera not detected")
@@ -28,9 +22,7 @@ if not cap.isOpened():
 
 print("Starting human detection. Press 'q' to quit.")
 
-# -------------------------------
 # SETUP HOG HUMAN DETECTOR
-# -------------------------------
 hog = cv2.HOGDescriptor()
 hog.setSVMDetector(cv2.HOGDescriptor_getDefaultPeopleDetector())
 
@@ -39,26 +31,21 @@ human_present = False
 detection_counter = 0
 frame_count = 0
 
-# -------------------------------
 # MAIN LOOP
-# -------------------------------
 while True:
     ret, frame = cap.read()
     if not ret:
         continue
 
     frame_count += 1
-
-    # Only run detection on every SKIP_FRAMES-th frame
     if frame_count % SKIP_FRAMES == 0:
-        # Resize frame for detection
         small_frame = cv2.resize(frame, (0, 0), fx=FRAME_DOWNSCALE, fy=FRAME_DOWNSCALE)
 
         boxes, weights = hog.detectMultiScale(
             small_frame,
-            winStride=(4, 4),  # smaller stride = more accurate
+            winStride=(4, 4), 
             padding=(8, 8),
-            scale=1.1          # larger scale = catch humans of different sizes
+            scale=1.1        
         )
 
         human_detected = False
@@ -86,7 +73,7 @@ while True:
         if detection_counter >= DETECTION_FRAMES_REQUIRED and not human_present:
             current_time = time.time()
             if (current_time - last_alarm_time) > ALARM_COOLDOWN:
-                print("🚨 HUMAN DETECTED!")
+                print("HUMAN DETECTED!")
                 alarm_sound.play()
                 last_alarm_time = current_time
             human_present = True
@@ -100,9 +87,6 @@ while True:
     if cv2.waitKey(1) & 0xFF == ord('q'):
         break
 
-# -------------------------------
-# CLEANUP
-# -------------------------------
 cap.release()
 cv2.destroyAllWindows()
 print("Program terminated.")
