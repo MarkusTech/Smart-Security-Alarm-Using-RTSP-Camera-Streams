@@ -37,9 +37,7 @@ class CameraHandler(threading.Thread):
             if self.frame_count % self.cfg["skip_frames"] != 0:
                 continue
 
-            # Resize once
             small_frame = cv2.resize(frame, (0,0), fx=self.cfg["frame_downscale"], fy=self.cfg["frame_downscale"])
-
             humans = self.detector.detect(small_frame)
             humans = [
                 (
@@ -54,13 +52,13 @@ class CameraHandler(threading.Thread):
 
             human_detected = len(humans) > 0
 
-            # Draw bounding boxes
+            # Draw boxes
             for (x1, y1, x2, y2) in humans:
                 cv2.rectangle(frame, (x1, y1), (x2, y2), (0,0,255), 2)
                 cv2.putText(frame, f"Person {self.camera_id}", (x1, y1-10),
                             cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0,0,255), 2)
 
-            cv2.putText(frame, time.strftime("%Y-%m-%d %H:%M:%S"), 
+            cv2.putText(frame, time.strftime("%Y-%m-%d %H:%M:%S"),
                         (10, frame.shape[0]-10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255,255,255), 1)
 
             # Detection logic
@@ -88,10 +86,15 @@ class CameraHandler(threading.Thread):
             elif self.detection_counter == 0:
                 self.human_present = False
 
-            # Show window
             cv2.imshow(f"Camera {self.camera_id}", frame)
 
-            # Optional: reduce CPU usage
+            # Check if window was closed
+            if cv2.getWindowProperty(f"Camera {self.camera_id}", cv2.WND_PROP_VISIBLE) < 1:
+                self.logger.info(f"Window closed for {self.camera_id}, stopping thread.")
+                self.stop_event.set()
+                break
+
+            # Small delay to reduce CPU
             cv2.waitKey(1)
 
         self.cap.release()
